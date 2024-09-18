@@ -1,4 +1,15 @@
-import express, { request } from "express";
+import express from "express";
+import {
+  query,
+  validationResult,
+  body,
+  matchedData,
+  checkSchema,
+} from "express-validator";
+import {
+  queryValidateSchema,
+  userValidationSchema,
+} from "./utils/validationSchema.mjs";
 
 const app = express();
 
@@ -42,7 +53,8 @@ app.get("/", (req, res) => {
   res.status(201).send({ message: "Hello!" });
 });
 
-app.get("/api/users", (req, res) => {
+app.get("/api/users", checkSchema(queryValidateSchema), (req, res) => {
+  const result = validationResult(req);
   const {
     query: { filter, value },
   } = req;
@@ -53,9 +65,15 @@ app.get("/api/users", (req, res) => {
   return res.send(mockUsers);
 });
 
-app.post("/api/users", (req, res) => {
-  const { body } = req;
-  const newUser = { id: mockUsers[mockUsers.length - 1].id + 1, ...body };
+app.post("/api/users", checkSchema(userValidationSchema), (req, res) => {
+  const result = validationResult(req);
+
+  if (!result.isEmpty())
+    return res.status(400).send({ errors: result.array() });
+
+  const data = matchedData(req);
+
+  const newUser = { id: mockUsers[mockUsers.length - 1].id + 1, ...data };
   mockUsers.push(newUser);
   return res.status(201).send(newUser);
 });
