@@ -13,10 +13,13 @@ import {
 } from "../utils/validationSchema.mjs";
 import { mockUsers } from "../utils/constants.mjs";
 import { resolveIndexByUserId } from "../utils/middleWares.mjs";
+import cookieParser from "cookie-parser";
 
 const router = Router();
+router.use(cookieParser());
 
 router.get("/", (req, res) => {
+  res.cookie("hello", "chandan", {maxAge: 20000, })
   res.status(201).send({ message: "Hello!" });
 });
 
