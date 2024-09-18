@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { response, Router } from "express";
 import {
   query,
   validationResult,
@@ -14,16 +14,73 @@ import {
 import { mockUsers } from "../utils/constants.mjs";
 import { resolveIndexByUserId } from "../utils/middleWares.mjs";
 import cookieParser from "cookie-parser";
+import session from "express-session";
 
 const router = Router();
 router.use(cookieParser());
+router.use(
+  session({
+    secret: "chandan the dev",
+    saveUninitialized: false,
+    resave: false,
+    cookie: {
+      maxAge: 60000 * 60,
+    },
+  })
+);
 
 router.get("/", (req, res) => {
-  res.cookie("hello", "chandan", {maxAge: 20000, })
+  // console.log(req.session);
+  // console.log(req.session.id);
+  req.session.visited = true;
+
+  res.cookie("hello", "chandan", { maxAge: 20000 });
   res.status(201).send({ message: "Hello!" });
 });
 
+router.post("/api/auth", (req, res) => {
+  const {
+    body: { email, password },
+  } = req;
+
+  const findUser = mockUsers.find((user) => user.email === email);
+  if (!findUser || findUser.password !== password)
+    return res.status(401).send({ message: "Bad Credentials" });
+
+  req.session.user = findUser;
+  return res.status(200).send(findUser);
+});
+
+router.get("/api/auth/status", (req, res) => {
+  req.sessionStore.get(req.sessionID, (err, session) => {
+    console.log(session);
+  });
+  return req.session.user
+    ? res.status(200).send(req.session.user)
+    : res.status(401).send({ message: "Not Authenticated" });
+});
+
+router.post("/api/cart", (req, res) => {
+  if (!req.session.user) return res.sendStatus(401);
+  const { body: item } = req;
+  const { cart } = req.session;
+
+  if (cart) {
+    cart.push(item);
+  } else {
+    req.session.cart = [item];
+  }
+  return res.status(201).send(item);
+});
+
+router.get("/api/cart", (req,res) => {
+  if (!req.session.user) return res.sendStatus(401);
+  return res.send(req.session.cart ?? []);
+})
+
 router.get("/api/users", checkSchema(queryValidateSchema), (req, res) => {
+  // console.log(req.session);
+  // console.log(req.session.id);
   const result = validationResult(req);
   const {
     query: { filter, value },
