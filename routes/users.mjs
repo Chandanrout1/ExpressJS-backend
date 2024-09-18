@@ -1,4 +1,11 @@
 import { response, Router } from "express";
+import { mockUsers } from "../utils/constants.mjs";
+import { resolveIndexByUserId } from "../utils/middleWares.mjs";
+import cookieParser from "cookie-parser";
+import session from "express-session";
+import passport from "passport";
+import "../strategies/local-strategy.mjs";
+
 import {
   query,
   validationResult,
@@ -11,10 +18,6 @@ import {
   queryValidateSchema,
   userValidationSchema,
 } from "../utils/validationSchema.mjs";
-import { mockUsers } from "../utils/constants.mjs";
-import { resolveIndexByUserId } from "../utils/middleWares.mjs";
-import cookieParser from "cookie-parser";
-import session from "express-session";
 
 const router = Router();
 router.use(cookieParser());
@@ -28,6 +31,8 @@ router.use(
     },
   })
 );
+router.use(passport.initialize());
+router.use(passport.session());
 
 router.get("/", (req, res) => {
   // console.log(req.session);
@@ -38,17 +43,36 @@ router.get("/", (req, res) => {
   res.status(201).send({ message: "Hello!" });
 });
 
-router.post("/api/auth", (req, res) => {
-  const {
-    body: { email, password },
-  } = req;
+// router.post("/api/auth", (req, res) => {
+//   const {
+//     body: { email, password },
+//   } = req;
 
-  const findUser = mockUsers.find((user) => user.email === email);
-  if (!findUser || findUser.password !== password)
-    return res.status(401).send({ message: "Bad Credentials" });
+//   const findUser = mockUsers.find((user) => user.email === email);
+//   if (!findUser || findUser.password !== password)
+//     return res.status(401).send({ message: "Bad Credentials" });
 
-  req.session.user = findUser;
-  return res.status(200).send(findUser);
+//   req.session.user = findUser;
+//   return res.status(200).send(findUser);
+// });
+
+router.post("/api/auth", passport.authenticate("local"), (req, res) => {
+  res.sendStatus(200);
+});
+
+router.get("/api/auth/status", (req,res) => {
+  console.log("Inside /auth/status endpoint");
+  console.log(req.user);
+  console.log(req.session);
+  return req.user ? res.send(req.user) : res.sendStatus(401);
+})
+
+router.post("/api/auth/logout", (req,res) => {
+  if(!req.user) return res.sendStatus(401);
+  req.logOut((err) => {
+    if(err) return response.sendStatus(400);
+    res.sendStatus(200);
+  });
 });
 
 router.get("/api/auth/status", (req, res) => {
@@ -73,10 +97,10 @@ router.post("/api/cart", (req, res) => {
   return res.status(201).send(item);
 });
 
-router.get("/api/cart", (req,res) => {
+router.get("/api/cart", (req, res) => {
   if (!req.session.user) return res.sendStatus(401);
   return res.send(req.session.cart ?? []);
-})
+});
 
 router.get("/api/users", checkSchema(queryValidateSchema), (req, res) => {
   // console.log(req.session);
