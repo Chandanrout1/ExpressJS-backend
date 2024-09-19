@@ -20,6 +20,7 @@ import {
   queryValidateSchema,
   userValidationSchema,
 } from "../utils/validationSchema.mjs";
+import { hashpassword } from "../utils/helpers.mjs";
 
 const router = Router();
 
@@ -139,7 +140,10 @@ router.post(
     const result = validationResult(req);
     if(!result.isEmpty()) return res.send(result.array());
 
-    const { body } = req
+    const { body } = req;
+    console.log(body);
+    body.password = hashpassword(body.password)
+    console.log(body);
     const newuser = new User(body);
     try {
       const saveduser = await newuser.save();
