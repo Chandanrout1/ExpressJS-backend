@@ -4,7 +4,9 @@ import { resolveIndexByUserId } from "../utils/middleWares.mjs";
 import cookieParser from "cookie-parser";
 import session from "express-session";
 import passport from "passport";
+import mongoose from "mongoose";
 import "../strategies/local-strategy.mjs";
+import { User } from "../database/user.mjs";
 
 import {
   query,
@@ -20,6 +22,12 @@ import {
 } from "../utils/validationSchema.mjs";
 
 const router = Router();
+
+mongoose
+  .connect("mongodb://localhost/express-backend")
+  .then(() => console.log("connected to database"))
+  .catch((err) => console.log(`Error ${err}`));
+
 router.use(cookieParser());
 router.use(
   session({
@@ -60,17 +68,17 @@ router.post("/api/auth", passport.authenticate("local"), (req, res) => {
   res.sendStatus(200);
 });
 
-router.get("/api/auth/status", (req,res) => {
+router.get("/api/auth/status", (req, res) => {
   console.log("Inside /auth/status endpoint");
   console.log(req.user);
   console.log(req.session);
   return req.user ? res.send(req.user) : res.sendStatus(401);
-})
+});
 
-router.post("/api/auth/logout", (req,res) => {
-  if(!req.user) return res.sendStatus(401);
+router.post("/api/auth/logout", (req, res) => {
+  if (!req.user) return res.sendStatus(401);
   req.logOut((err) => {
-    if(err) return response.sendStatus(400);
+    if (err) return response.sendStatus(400);
     res.sendStatus(200);
   });
 });
@@ -124,18 +132,24 @@ router.get("/api/users/:id", resolveIndexByUserId, (req, res) => {
   return res.send(findUser);
 });
 
-router.post("/api/users", checkSchema(userValidationSchema), (req, res) => {
-  const result = validationResult(req);
+router.post(
+  "/api/users",
+  checkSchema(userValidationSchema),
+  async (req, res) => {
+    const result = validationResult(req);
+    if(!result.isEmpty()) return res.send(result.array());
 
-  if (!result.isEmpty())
-    return res.status(400).send({ errors: result.array() });
-
-  const data = matchedData(req);
-
-  const newUser = { id: mockUsers[mockUsers.length - 1].id + 1, ...data };
-  mockUsers.push(newUser);
-  return res.status(201).send(newUser);
-});
+    const { body } = req
+    const newuser = new User(body);
+    try {
+      const saveduser = await newuser.save();
+      return res.status(201).send(saveduser);
+    } catch (error) {
+      console.log(error);
+      return res.sendStatus(400);
+    }
+  }
+);
 
 router.put("/api/users/:id", resolveIndexByUserId, (req, res) => {
   const { body, findUserIndex } = req;
